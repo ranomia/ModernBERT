@@ -116,16 +116,13 @@ class JCommonsenseQALoader:
 
             # デバッグ情報を出力
             print(f"Available splits check...")
-            dataset_info = load_dataset(
-                "shunk031/JGLUE", name="JCommonsenseQA", trust_remote_code=True
-            )
+            dataset_info = load_dataset("shunk031/JGLUE", name="JCommonsenseQA")
             print(f"Available splits: {list(dataset_info.keys())}")
 
             dataset = load_dataset(
                 "shunk031/JGLUE",
                 name="JCommonsenseQA",
                 split=split,
-                trust_remote_code=True,
             )
 
             # データを辞書のリストに変換
@@ -147,7 +144,6 @@ class JCommonsenseQALoader:
                     "shunk031/JGLUE",
                     name="JCommonsenseQA",
                     split=split,
-                    trust_remote_code=True,
                     download_mode="force_redownload",
                 )
 
@@ -172,7 +168,6 @@ class JCommonsenseQALoader:
                         "shunk031/JGLUE",
                         name="JCommonsenseQA",
                         split=split,
-                        trust_remote_code=True,
                     )
 
                     data = []
