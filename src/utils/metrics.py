@@ -15,6 +15,17 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import pandas as pd
 
+# 日本語フォント対応
+try:
+    import japanize_matplotlib
+
+    print("✅ japanize_matplotlib を読み込みました。日本語表示が有効です。")
+except ImportError:
+    print(
+        "⚠️  japanize_matplotlib が見つかりません。日本語が文字化けする可能性があります。"
+    )
+    print("   pip install japanize-matplotlib でインストールしてください。")
+
 
 class MetricsCalculator:
     """メトリクス計算クラス"""
