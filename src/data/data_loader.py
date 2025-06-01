@@ -109,6 +109,13 @@ class JCommonsenseQALoader:
         Returns:
             データのリスト
         """
+        # Colab環境での互換性設定
+        import os
+
+        os.environ["HF_DATASETS_OFFLINE"] = "0"
+        os.environ["TRANSFORMERS_OFFLINE"] = "0"
+        os.environ["HF_DATASETS_TRUST_REMOTE_CODE"] = "1"
+
         try:
             # Colabでの互換性のためキャッシュを無効化
             import datasets
@@ -127,6 +134,7 @@ class JCommonsenseQALoader:
                 streaming=False,  # ストリーミングを無効
                 download_mode="force_redownload",  # 強制再ダウンロード
                 verification_mode="no_checks",  # 検証を無効
+                trust_remote_code=True,  # リモートコードを信頼
             )
 
             # データを辞書のリストに変換
@@ -152,6 +160,8 @@ class JCommonsenseQALoader:
                     name="JCommonsenseQA",
                     split=split,
                     streaming=True,  # ストリーミングモード
+                    trust_remote_code=True,  # リモートコードを信頼
+                    verification_mode="no_checks",
                 )
 
                 # ストリーミングデータを辞書リストに変換
@@ -166,38 +176,74 @@ class JCommonsenseQALoader:
 
             except Exception as e2:
                 print(f"Streaming method also failed: {e2}")
-                print("Trying minimal approach...")
+                print("Trying alternative dataset approach...")
 
-                # 代替方法2: 最小限のアプローチ
+                # 代替方法3: 別のアプローチでデータセットを取得
                 try:
-                    # キャッシュディレクトリをクリア
-                    self.clear_cache()
-
+                    # 手動でキャッシュ設定
                     import datasets
+                    from datasets import DownloadConfig
 
                     datasets.disable_caching()
 
-                    # 最小限の設定で試行
+                    download_config = DownloadConfig(
+                        force_download=True,
+                        resume_download=False,
+                        use_etag=False,
+                    )
+
+                    # 直接的なアプローチ
                     dataset = load_dataset(
                         "shunk031/JGLUE",
-                        name="JCommonsenseQA",
-                        trust_remote_code=True,  # リモートコードを信頼
-                        verification_mode="no_checks",
-                    )[split]
+                        "JCommonsenseQA",
+                        split=split,
+                        trust_remote_code=True,
+                        download_config=download_config,
+                    )
 
                     data = []
                     for item in dataset:
                         data.append(item)
 
                     print(
-                        f"Successfully loaded {len(data)} samples using minimal approach"
+                        f"Successfully loaded {len(data)} samples using alternative approach"
                     )
                     return data
 
                 except Exception as e3:
-                    print(f"All loading methods failed: {e3}")
-                    print("Creating dummy data for testing...")
-                    return self._create_dummy_data(split)
+                    print(f"Alternative approach also failed: {e3}")
+                    print("Trying minimal approach...")
+
+                    # 代替方法4: 最小限のアプローチ
+                    try:
+                        # キャッシュディレクトリをクリア
+                        self.clear_cache()
+
+                        import datasets
+
+                        datasets.disable_caching()
+
+                        # 最小限の設定で試行
+                        dataset = load_dataset(
+                            "shunk031/JGLUE",
+                            name="JCommonsenseQA",
+                            trust_remote_code=True,  # リモートコードを信頼
+                            verification_mode="no_checks",
+                        )[split]
+
+                        data = []
+                        for item in dataset:
+                            data.append(item)
+
+                        print(
+                            f"Successfully loaded {len(data)} samples using minimal approach"
+                        )
+                        return data
+
+                    except Exception as e4:
+                        print(f"All loading methods failed: {e4}")
+                        print("Creating dummy data for testing...")
+                        return self._create_dummy_data(split)
 
     def _create_dummy_data(self, split: str) -> List[Dict[str, Any]]:
         """テスト用のダミーデータを作成"""

@@ -27,6 +27,7 @@ datasets.disable_caching()
 # 環境変数の設定
 os.environ['HF_DATASETS_OFFLINE'] = '0'
 os.environ['TRANSFORMERS_OFFLINE'] = '0'
+os.environ['HF_DATASETS_TRUST_REMOTE_CODE'] = '1'
 ```
 
 ### 3. データセットロードの問題解決
@@ -58,6 +59,64 @@ if os.path.exists(cache_dir):
 1. `datasets.disable_caching()`を実行
 2. `download_mode="force_redownload"`を使用
 3. ストリーミングモードを使用
+
+### エラー: "BuilderConfig doesn't have a 'trust_remote_code' key"
+
+**原因**: JGLUEデータセットのビルダー設定で`trust_remote_code`パラメータが必要
+
+**解決方法**:
+```python
+# 環境変数を設定
+import os
+os.environ['HF_DATASETS_TRUST_REMOTE_CODE'] = '1'
+
+# データセット読み込み時に明示的に指定
+from datasets import load_dataset
+dataset = load_dataset(
+    "shunk031/JGLUE",
+    name="JCommonsenseQA",
+    trust_remote_code=True,
+    verification_mode="no_checks"
+)
+```
+
+### 完全な問題解決コード
+
+```python
+import os
+import shutil
+import datasets
+from datasets import load_dataset, DownloadConfig
+
+# 1. 環境変数設定
+os.environ['HF_DATASETS_OFFLINE'] = '0'
+os.environ['TRANSFORMERS_OFFLINE'] = '0'
+os.environ['HF_DATASETS_TRUST_REMOTE_CODE'] = '1'
+
+# 2. キャッシュ無効化
+datasets.disable_caching()
+
+# 3. 既存キャッシュクリア
+cache_dir = os.path.expanduser("~/.cache/huggingface/datasets")
+if os.path.exists(cache_dir):
+    shutil.rmtree(cache_dir)
+    print("キャッシュをクリアしました")
+
+# 4. データセット読み込み
+try:
+    dataset = load_dataset(
+        "shunk031/JGLUE",
+        name="JCommonsenseQA",
+        split="validation",
+        trust_remote_code=True,
+        download_mode="force_redownload",
+        verification_mode="no_checks"
+    )
+    print(f"データセット読み込み成功: {len(dataset)} サンプル")
+except Exception as e:
+    print(f"エラー: {e}")
+    # 代替方法の実行...
+```
 
 ### メモリ不足エラー
 
@@ -95,6 +154,10 @@ if torch.cuda.is_available():
 # 1. 環境設定
 import torch
 import datasets
+import os
+
+# 環境変数設定
+os.environ['HF_DATASETS_TRUST_REMOTE_CODE'] = '1'
 datasets.disable_caching()
 
 # 2. デバイス設定
@@ -128,3 +191,32 @@ trainer.quick_finetune(
 2. **バッチサイズ調整**: メモリ使用量に応じて2-8の範囲で調整
 3. **シーケンス長**: 必要最小限の長さ（64-256）に設定
 4. **定期的なメモリクリア**: 長時間実行時は`torch.cuda.empty_cache()`を実行 
+
+## トラブルシューティング手順
+
+### 問題が解決しない場合の順次実行手順
+
+1. **第一段階**: 環境変数設定とキャッシュクリア
+2. **第二段階**: datasetsライブラリの再インストール
+3. **第三段階**: 完全なランタイム再起動
+4. **第四段階**: 新しいColab環境での実行
+
+```python
+# 第一段階実行コード
+import os
+import shutil
+import datasets
+
+os.environ['HF_DATASETS_TRUST_REMOTE_CODE'] = '1'
+datasets.disable_caching()
+
+cache_dir = os.path.expanduser("~/.cache/huggingface/datasets")
+if os.path.exists(cache_dir):
+    shutil.rmtree(cache_dir)
+
+print("第一段階完了")
+
+# 第二段階実行コード（必要に応じて）
+!pip uninstall datasets -y
+!pip install datasets --no-cache-dir
+print("第二段階完了") 
