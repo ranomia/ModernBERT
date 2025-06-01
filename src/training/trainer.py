@@ -6,6 +6,7 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader
+from torch.cuda.amp import autocast, GradScaler
 from tqdm import tqdm
 import sys
 import os
@@ -19,12 +20,22 @@ from data.data_loader import JCommonsenseQALoader
 class SimpleTrainer:
     """簡単なファインチューニング用トレーナー"""
 
-    def __init__(self, model, device, learning_rate=2e-5):
+    def __init__(self, model, device, learning_rate=2e-5, use_mixed_precision=False):
         self.model = model
         self.device = device
         self.learning_rate = learning_rate
+        self.use_mixed_precision = use_mixed_precision
         self.optimizer = optim.AdamW(model.parameters(), lr=learning_rate)
         self.criterion = nn.CrossEntropyLoss()
+
+        # 混合精度学習用のGradScaler
+        if use_mixed_precision and device.type == "cuda":
+            self.scaler = GradScaler()
+            print("✅ 混合精度学習が有効になりました")
+        else:
+            self.scaler = None
+            if use_mixed_precision and device.type != "cuda":
+                print("⚠️  混合精度学習はCUDA環境でのみ使用可能です。無効化されました。")
 
     def train_epoch(self, dataloader, epoch):
         """1エポックの訓練"""
@@ -59,13 +70,25 @@ class SimpleTrainer:
             attention_mask = torch.stack(attention_mask_list).to(self.device)
             labels = batch["labels"].to(self.device)
 
-            # フォワードパス
-            logits = self.model(input_ids, attention_mask)
-            loss = self.criterion(logits, labels)
+            # 混合精度学習対応のフォワードパス
+            if self.scaler is not None:
+                # 混合精度学習使用
+                with autocast():
+                    logits = self.model(input_ids, attention_mask)
+                    loss = self.criterion(logits, labels)
 
-            # バックワード
-            loss.backward()
-            self.optimizer.step()
+                # バックワード（混合精度）
+                self.scaler.scale(loss).backward()
+                self.scaler.step(self.optimizer)
+                self.scaler.update()
+            else:
+                # 通常の学習
+                logits = self.model(input_ids, attention_mask)
+                loss = self.criterion(logits, labels)
+
+                # バックワード
+                loss.backward()
+                self.optimizer.step()
 
             # 統計更新
             total_loss += loss.item()
