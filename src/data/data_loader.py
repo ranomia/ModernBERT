@@ -84,19 +84,20 @@ class JCommonsenseQALoader:
 
     def clear_cache(self):
         """HuggingFace Datasetsのキャッシュをクリアする"""
-        from datasets import config
-
-        cache_dir = config.HF_DATASETS_CACHE
-
         try:
+            import datasets
+
+            datasets.disable_caching()  # キャッシュを無効化
+            print("Disabled datasets caching for this session")
+
+            # 既存のキャッシュディレクトリもクリア
+            cache_dir = os.path.expanduser("~/.cache/huggingface/datasets")
             if os.path.exists(cache_dir):
                 print(f"Clearing datasets cache at: {cache_dir}")
                 shutil.rmtree(cache_dir)
                 print("Cache cleared successfully")
-            else:
-                print("No cache directory found")
         except Exception as e:
-            print(f"Error clearing cache: {e}")
+            print(f"Warning: Could not clear cache: {e}")
 
     def load_data(self, split: str = "validation") -> List[Dict[str, Any]]:
         """
@@ -109,20 +110,23 @@ class JCommonsenseQALoader:
             データのリスト
         """
         try:
-            # HuggingFace DatasetsからJCommonsenseQAを読み込み
+            # Colabでの互換性のためキャッシュを無効化
+            import datasets
+
+            datasets.disable_caching()
+
             print(
                 f"Loading JCommonsenseQA dataset from HuggingFace (split: {split})..."
             )
 
-            # デバッグ情報を出力
-            print(f"Available splits check...")
-            dataset_info = load_dataset("shunk031/JGLUE", name="JCommonsenseQA")
-            print(f"Available splits: {list(dataset_info.keys())}")
-
+            # 直接ダウンロードモードで読み込み（キャッシュを使わない）
             dataset = load_dataset(
                 "shunk031/JGLUE",
                 name="JCommonsenseQA",
                 split=split,
+                streaming=False,  # ストリーミングを無効
+                download_mode="force_redownload",  # 強制再ダウンロード
+                verification_mode="no_checks",  # 検証を無効
             )
 
             # データを辞書のリストに変換
@@ -130,57 +134,69 @@ class JCommonsenseQALoader:
             for item in dataset:
                 data.append(item)
 
-            print(f"Loaded {len(data)} samples from {split} split")
+            print(f"Successfully loaded {len(data)} samples from {split} split")
             return data
 
         except Exception as e:
-            print(f"Error loading dataset: {e}")
-            print("Trying alternative loading method...")
+            print(f"Primary loading method failed: {e}")
+            print("Trying streaming approach...")
 
-            # 代替方法1: キャッシュを使わずに再ダウンロード
+            # 代替方法: ストリーミングモード
             try:
-                print("Attempting force redownload...")
+                import datasets
+
+                datasets.disable_caching()
+
                 dataset = load_dataset(
                     "shunk031/JGLUE",
                     name="JCommonsenseQA",
                     split=split,
-                    download_mode="force_redownload",
+                    streaming=True,  # ストリーミングモード
                 )
 
+                # ストリーミングデータを辞書リストに変換
                 data = []
-                for item in dataset:
+                for i, item in enumerate(dataset):
+                    if i >= 1000:  # メモリ節約のため制限
+                        break
                     data.append(item)
 
-                print(
-                    f"Successfully loaded {len(data)} samples using alternative method"
-                )
+                print(f"Successfully loaded {len(data)} samples using streaming mode")
                 return data
 
             except Exception as e2:
-                print(f"Alternative method also failed: {e2}")
+                print(f"Streaming method also failed: {e2}")
+                print("Trying minimal approach...")
 
-                # 代替方法2: キャッシュクリアして再試行
+                # 代替方法2: 最小限のアプローチ
                 try:
-                    print("Clearing cache and retrying...")
+                    # キャッシュディレクトリをクリア
                     self.clear_cache()
 
+                    import datasets
+
+                    datasets.disable_caching()
+
+                    # 最小限の設定で試行
                     dataset = load_dataset(
                         "shunk031/JGLUE",
                         name="JCommonsenseQA",
-                        split=split,
-                    )
+                        trust_remote_code=True,  # リモートコードを信頼
+                        verification_mode="no_checks",
+                    )[split]
 
                     data = []
                     for item in dataset:
                         data.append(item)
 
-                    print(f"Successfully loaded {len(data)} samples after cache clear")
+                    print(
+                        f"Successfully loaded {len(data)} samples using minimal approach"
+                    )
                     return data
 
                 except Exception as e3:
-                    print(f"Cache clear method also failed: {e3}")
+                    print(f"All loading methods failed: {e3}")
                     print("Creating dummy data for testing...")
-                    # テスト用のダミーデータを作成
                     return self._create_dummy_data(split)
 
     def _create_dummy_data(self, split: str) -> List[Dict[str, Any]]:

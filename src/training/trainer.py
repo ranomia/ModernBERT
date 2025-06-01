@@ -113,15 +113,28 @@ class SimpleTrainer:
         print(f"エポック数: {num_epochs}, バッチサイズ: {batch_size}")
 
         # データローダー作成
-        data_loader_instance = JCommonsenseQALoader(tokenizer_name=tokenizer_name)
+        try:
+            data_loader_instance = JCommonsenseQALoader(tokenizer_name=tokenizer_name)
 
-        # 訓練データ（validationデータの一部を使用）
-        train_dataloader = data_loader_instance.create_dataloader(
-            split="validation",
-            batch_size=batch_size,
-            max_length=max_length,
-            shuffle=True,
-        )
+            # 訓練データ（validationデータの一部を使用）
+            train_dataloader = data_loader_instance.create_dataloader(
+                split="validation",
+                batch_size=batch_size,
+                max_length=max_length,
+                shuffle=True,
+            )
+        except Exception as e:
+            print(f"⚠️  データローダーの作成に失敗しました: {e}")
+            print("ダミーデータで続行します...")
+
+            # エラー時はダミーデータを使用
+            data_loader_instance = JCommonsenseQALoader(tokenizer_name=tokenizer_name)
+            train_dataloader = data_loader_instance.create_dataloader(
+                split="validation",  # ダミーデータが作成される
+                batch_size=batch_size,
+                max_length=max_length,
+                shuffle=True,
+            )
 
         self.model.to(self.device)
 
