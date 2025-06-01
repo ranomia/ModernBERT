@@ -96,7 +96,7 @@ class JCommonsenseQALoader:
             print(
                 f"Loading JCommonsenseQA dataset from HuggingFace (split: {split})..."
             )
-            dataset = load_dataset("sbintuitions/JCommonsenseQA", split=split)
+            dataset = load_dataset("shunk031/JGLUE", name="JCommonsenseQA", split=split)
 
             # データを辞書のリストに変換
             data = []
