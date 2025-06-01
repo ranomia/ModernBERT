@@ -8,6 +8,7 @@ from transformers import AutoTokenizer
 from typing import List, Dict, Any, Tuple
 from datasets import load_dataset
 import os
+import shutil
 
 
 class JCommonsenseQADataset(Dataset):
@@ -81,6 +82,22 @@ class JCommonsenseQALoader:
     def __init__(self, tokenizer_name: str = "cl-tohoku/bert-base-japanese-v3"):
         self.tokenizer = AutoTokenizer.from_pretrained(tokenizer_name)
 
+    def clear_cache(self):
+        """HuggingFace Datasetsのキャッシュをクリアする"""
+        from datasets import config
+
+        cache_dir = config.HF_DATASETS_CACHE
+
+        try:
+            if os.path.exists(cache_dir):
+                print(f"Clearing datasets cache at: {cache_dir}")
+                shutil.rmtree(cache_dir)
+                print("Cache cleared successfully")
+            else:
+                print("No cache directory found")
+        except Exception as e:
+            print(f"Error clearing cache: {e}")
+
     def load_data(self, split: str = "validation") -> List[Dict[str, Any]]:
         """
         HuggingFace Datasetsからデータを読み込む
@@ -96,7 +113,20 @@ class JCommonsenseQALoader:
             print(
                 f"Loading JCommonsenseQA dataset from HuggingFace (split: {split})..."
             )
-            dataset = load_dataset("shunk031/JGLUE", name="JCommonsenseQA", split=split)
+
+            # デバッグ情報を出力
+            print(f"Available splits check...")
+            dataset_info = load_dataset(
+                "shunk031/JGLUE", name="JCommonsenseQA", trust_remote_code=True
+            )
+            print(f"Available splits: {list(dataset_info.keys())}")
+
+            dataset = load_dataset(
+                "shunk031/JGLUE",
+                name="JCommonsenseQA",
+                split=split,
+                trust_remote_code=True,
+            )
 
             # データを辞書のリストに変換
             data = []
@@ -108,9 +138,55 @@ class JCommonsenseQALoader:
 
         except Exception as e:
             print(f"Error loading dataset: {e}")
-            print("Creating dummy data for testing...")
-            # テスト用のダミーデータを作成
-            return self._create_dummy_data(split)
+            print("Trying alternative loading method...")
+
+            # 代替方法1: キャッシュを使わずに再ダウンロード
+            try:
+                print("Attempting force redownload...")
+                dataset = load_dataset(
+                    "shunk031/JGLUE",
+                    name="JCommonsenseQA",
+                    split=split,
+                    trust_remote_code=True,
+                    download_mode="force_redownload",
+                )
+
+                data = []
+                for item in dataset:
+                    data.append(item)
+
+                print(
+                    f"Successfully loaded {len(data)} samples using alternative method"
+                )
+                return data
+
+            except Exception as e2:
+                print(f"Alternative method also failed: {e2}")
+
+                # 代替方法2: キャッシュクリアして再試行
+                try:
+                    print("Clearing cache and retrying...")
+                    self.clear_cache()
+
+                    dataset = load_dataset(
+                        "shunk031/JGLUE",
+                        name="JCommonsenseQA",
+                        split=split,
+                        trust_remote_code=True,
+                    )
+
+                    data = []
+                    for item in dataset:
+                        data.append(item)
+
+                    print(f"Successfully loaded {len(data)} samples after cache clear")
+                    return data
+
+                except Exception as e3:
+                    print(f"Cache clear method also failed: {e3}")
+                    print("Creating dummy data for testing...")
+                    # テスト用のダミーデータを作成
+                    return self._create_dummy_data(split)
 
     def _create_dummy_data(self, split: str) -> List[Dict[str, Any]]:
         """テスト用のダミーデータを作成"""
@@ -174,6 +250,12 @@ class JCommonsenseQALoader:
 
 if __name__ == "__main__":
     # テスト用コード
+    print("JCommonsenseQA Data Loader Test")
+
+    # 必要に応じてキャッシュをクリア（コメントアウトを外してください）
+    # loader = JCommonsenseQALoader()
+    # loader.clear_cache()
+
     loader = JCommonsenseQALoader()
     dataloader = loader.create_dataloader(split="validation", batch_size=2)
 
