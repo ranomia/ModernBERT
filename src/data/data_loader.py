@@ -128,13 +128,7 @@ class JCommonsenseQALoader:
 
             # 直接ダウンロードモードで読み込み（キャッシュを使わない）
             dataset = load_dataset(
-                "leemeng/jcommonsenseqa-v1.1",
-                # name="JCommonsenseQA",
-                # split=split,
-                # streaming=False,  # ストリーミングを無効
-                # download_mode="force_redownload",  # 強制再ダウンロード
-                # verification_mode="no_checks",  # 検証を無効
-                # trust_remote_code=True,  # リモートコードを信頼
+                "leemeng/jcommonsenseqa-v1.1"
             )
 
             # データを辞書のリストに変換
