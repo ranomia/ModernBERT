@@ -9,6 +9,7 @@ from typing import List, Dict, Any, Tuple
 from datasets import load_dataset
 import os
 import shutil
+import random
 
 
 class JCommonsenseQADataset(Dataset):
@@ -131,15 +132,21 @@ class JCommonsenseQALoader:
                 "leemeng/jcommonsenseqa-v1.1"
             )
 
+            print(f"Available splits: {list(dataset_dict.keys())}")
+            
             # 指定されたsplitのデータを取得
             if split in dataset_dict:
                 dataset = dataset_dict[split]
+                print(f"✅ Successfully found '{split}' split with {len(dataset)} samples")
             else:
                 print(f"Warning: Split '{split}' not found. Available splits: {list(dataset_dict.keys())}")
                 # validationが指定されていてtestがある場合はtestを使用
                 if split == "validation" and "test" in dataset_dict:
                     print("Using 'test' split instead of 'validation'")
                     dataset = dataset_dict["test"]
+                elif split == "train" and "train" in dataset_dict:
+                    print("Using 'train' split")
+                    dataset = dataset_dict["train"]
                 else:
                     # 最初に見つかったsplitを使用
                     available_split = list(dataset_dict.keys())[0]
@@ -152,134 +159,74 @@ class JCommonsenseQALoader:
                 data.append(item)
 
             print(f"Successfully loaded {len(data)} samples from {split} split")
+            
+            # データの内容を簡単に確認
+            if len(data) > 0:
+                first_item = data[0]
+                print(f"Sample data structure: {list(first_item.keys())}")
+                
             return data
 
         except Exception as e:
-            print(f"Primary loading method failed: {e}")
-            print("Trying streaming approach...")
+            print(f"❌ Primary loading method failed: {e}")
+            print("Trying alternative approaches...")
 
-            # 代替方法: ストリーミングモード
+            # 代替方法1: 別のデータセット名で試行
             try:
+                print("Trying alternative dataset: shunk031/JGLUE...")
                 import datasets
-
                 datasets.disable_caching()
 
                 dataset = load_dataset(
                     "shunk031/JGLUE",
                     name="JCommonsenseQA",
                     split=split,
-                    streaming=True,  # ストリーミングモード
-                    trust_remote_code=True,  # リモートコードを信頼
+                    trust_remote_code=True,
                     verification_mode="no_checks",
                 )
 
-                # ストリーミングデータを辞書リストに変換
                 data = []
-                for i, item in enumerate(dataset):
-                    if i >= 1000:  # メモリ節約のため制限
-                        break
+                for item in dataset:
                     data.append(item)
 
-                print(f"Successfully loaded {len(data)} samples using streaming mode")
+                print(f"✅ Successfully loaded {len(data)} samples using alternative dataset")
                 return data
 
             except Exception as e2:
-                print(f"Streaming method also failed: {e2}")
-                print("Trying alternative dataset approach...")
-
-                # 代替方法3: 別のアプローチでデータセットを取得
-                try:
-                    # 手動でキャッシュ設定
-                    import datasets
-                    from datasets import DownloadConfig
-
-                    datasets.disable_caching()
-
-                    download_config = DownloadConfig(
-                        force_download=True,
-                        resume_download=False,
-                        use_etag=False,
-                    )
-
-                    # 直接的なアプローチ
-                    dataset = load_dataset(
-                        "shunk031/JGLUE",
-                        "JCommonsenseQA",
-                        split=split,
-                        trust_remote_code=True,
-                        download_config=download_config,
-                    )
-
-                    data = []
-                    for item in dataset:
-                        data.append(item)
-
-                    print(
-                        f"Successfully loaded {len(data)} samples using alternative approach"
-                    )
-                    return data
-
-                except Exception as e3:
-                    print(f"Alternative approach also failed: {e3}")
-                    print("Trying minimal approach...")
-
-                    # 代替方法4: 最小限のアプローチ
-                    try:
-                        # キャッシュディレクトリをクリア
-                        self.clear_cache()
-
-                        import datasets
-
-                        datasets.disable_caching()
-
-                        # 最小限の設定で試行
-                        dataset = load_dataset(
-                            "shunk031/JGLUE",
-                            name="JCommonsenseQA",
-                            trust_remote_code=True,  # リモートコードを信頼
-                            verification_mode="no_checks",
-                        )[split]
-
-                        data = []
-                        for item in dataset:
-                            data.append(item)
-
-                        print(
-                            f"Successfully loaded {len(data)} samples using minimal approach"
-                        )
-                        return data
-
-                    except Exception as e4:
-                        print(f"All loading methods failed: {e4}")
-                        print("Creating dummy data for testing...")
-                        return self._create_dummy_data(split)
+                print(f"❌ Alternative dataset loading failed: {e2}")
+                print("⚠️  All data loading methods failed. Creating dummy data for testing...")
+                return self._create_dummy_data(split)
 
     def _create_dummy_data(self, split: str) -> List[Dict[str, Any]]:
         """テスト用のダミーデータを作成"""
         dummy_data = []
-        # trainには多めのサンプル、validationには少なめのサンプルを作成
+        # より現実的なサンプル数に増加
         if split == "train":
-            num_samples = 50  # 学習用により多くのサンプル
+            num_samples = 1000  # 学習用により多くのサンプル
         elif split == "validation":
-            num_samples = 10
+            num_samples = 200   # 検証用も十分なサンプル数
         else:
-            num_samples = 5
+            num_samples = 100
 
         for i in range(num_samples):
+            # ランダムなラベルを生成（規則的なパターンを排除）
+            random_label = random.randint(0, 4)
+            
             dummy_data.append(
                 {
                     "q_id": i,
-                    "question": f"テスト質問{i}",
-                    "choice0": "選択肢A",
-                    "choice1": "選択肢B",
-                    "choice2": "選択肢C",
-                    "choice3": "選択肢D",
-                    "choice4": "選択肢E",
-                    "label": i % 5,
+                    "question": f"テスト質問{i}：これは機械学習のテスト用ダミーデータです。",
+                    "choice0": f"選択肢A_{i}",
+                    "choice1": f"選択肢B_{i}",
+                    "choice2": f"選択肢C_{i}",
+                    "choice3": f"選択肢D_{i}",
+                    "choice4": f"選択肢E_{i}",
+                    "label": random_label,  # ランダムなラベル
                 }
             )
 
         print(f"Created {len(dummy_data)} dummy samples for {split} split")
+        print(f"⚠️  注意：これはダミーデータです。実際のデータセット読み込みに失敗しています。")
         return dummy_data
 
     def create_dataloader(
