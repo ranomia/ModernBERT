@@ -257,7 +257,13 @@ class JCommonsenseQALoader:
     def _create_dummy_data(self, split: str) -> List[Dict[str, Any]]:
         """テスト用のダミーデータを作成"""
         dummy_data = []
-        num_samples = 10 if split == "validation" else 5
+        # trainには多めのサンプル、validationには少なめのサンプルを作成
+        if split == "train":
+            num_samples = 50  # 学習用により多くのサンプル
+        elif split == "validation":
+            num_samples = 10
+        else:
+            num_samples = 5
 
         for i in range(num_samples):
             dummy_data.append(

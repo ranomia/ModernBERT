@@ -105,6 +105,51 @@ class SimpleTrainer:
 
         return avg_loss, accuracy
 
+    def evaluate_epoch(self, dataloader):
+        """1エポックの検証"""
+        self.model.eval()
+        total_loss = 0
+        correct = 0
+        total = 0
+
+        with torch.no_grad():
+            for batch in tqdm(dataloader, desc="Validation"):
+                # バッチデータの処理
+                batch_size = len(batch["choices"])
+                input_ids_list = []
+                attention_mask_list = []
+
+                for choices in batch["choices"]:
+                    choice_input_ids = []
+                    choice_attention_mask = []
+
+                    for choice in choices:
+                        choice_input_ids.append(choice["input_ids"])
+                        choice_attention_mask.append(choice["attention_mask"])
+
+                    input_ids_list.append(torch.stack(choice_input_ids))
+                    attention_mask_list.append(torch.stack(choice_attention_mask))
+
+                # テンソルに変換してデバイスに移動
+                input_ids = torch.stack(input_ids_list).to(self.device)
+                attention_mask = torch.stack(attention_mask_list).to(self.device)
+                labels = batch["labels"].to(self.device)
+
+                # フォワードパス（勾配計算なし）
+                logits = self.model(input_ids, attention_mask)
+                loss = self.criterion(logits, labels)
+
+                # 統計更新
+                total_loss += loss.item()
+                _, predicted = torch.max(logits.data, 1)
+                total += labels.size(0)
+                correct += (predicted == labels).sum().item()
+
+        accuracy = 100 * correct / total
+        avg_loss = total_loss / len(dataloader)
+
+        return avg_loss, accuracy
+
     def quick_finetune(
         self, tokenizer_name, num_epochs=3, batch_size=4, max_length=128
     ):
@@ -116,32 +161,61 @@ class SimpleTrainer:
         try:
             data_loader_instance = JCommonsenseQALoader(tokenizer_name=tokenizer_name)
 
-            # 訓練データ（validationデータの一部を使用）
+            # 訓練データ（trainデータを使用）
+            print("📚 学習用データセット（train）を読み込み中...")
             train_dataloader = data_loader_instance.create_dataloader(
-                split="validation",
+                split="train",  # 正しく学習データを使用
                 batch_size=batch_size,
                 max_length=max_length,
                 shuffle=True,
             )
+            
+            # 検証データ（評価用に準備）
+            print("📖 検証用データセット（validation）を読み込み中...")
+            val_dataloader = data_loader_instance.create_dataloader(
+                split="validation",
+                batch_size=batch_size,
+                max_length=max_length,
+                shuffle=False,
+            )
+            
         except Exception as e:
             print(f"⚠️  データローダーの作成に失敗しました: {e}")
             print("ダミーデータで続行します...")
 
             # エラー時はダミーデータを使用
             data_loader_instance = JCommonsenseQALoader(tokenizer_name=tokenizer_name)
+            
+            # 学習用ダミーデータ
             train_dataloader = data_loader_instance.create_dataloader(
-                split="validation",  # ダミーデータが作成される
+                split="train",  # ダミーの学習データが作成される
                 batch_size=batch_size,
                 max_length=max_length,
                 shuffle=True,
             )
+            
+            # 検証用ダミーデータ
+            val_dataloader = data_loader_instance.create_dataloader(
+                split="validation",  # ダミーの検証データが作成される
+                batch_size=batch_size,
+                max_length=max_length,
+                shuffle=False,
+            )
 
         self.model.to(self.device)
 
+        # 各エポックでファインチューニングと検証を実行
         for epoch in range(1, num_epochs + 1):
-            avg_loss, accuracy = self.train_epoch(train_dataloader, epoch)
+            # 学習フェーズ
+            avg_loss, train_accuracy = self.train_epoch(train_dataloader, epoch)
+            
+            # 検証フェーズ
+            val_loss, val_accuracy = self.evaluate_epoch(val_dataloader)
+            
             print(
-                f"Epoch {epoch}/{num_epochs} - Loss: {avg_loss:.4f}, Accuracy: {accuracy:.2f}%"
+                f"Epoch {epoch}/{num_epochs} - "
+                f"Train Loss: {avg_loss:.4f}, Train Acc: {train_accuracy:.2f}% | "
+                f"Val Loss: {val_loss:.4f}, Val Acc: {val_accuracy:.2f}%"
             )
 
         print("✅ ファインチューニングが完了しました！")
