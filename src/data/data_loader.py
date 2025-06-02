@@ -127,9 +127,24 @@ class JCommonsenseQALoader:
             )
 
             # 直接ダウンロードモードで読み込み（キャッシュを使わない）
-            dataset = load_dataset(
+            dataset_dict = load_dataset(
                 "leemeng/jcommonsenseqa-v1.1"
             )
+
+            # 指定されたsplitのデータを取得
+            if split in dataset_dict:
+                dataset = dataset_dict[split]
+            else:
+                print(f"Warning: Split '{split}' not found. Available splits: {list(dataset_dict.keys())}")
+                # validationが指定されていてtestがある場合はtestを使用
+                if split == "validation" and "test" in dataset_dict:
+                    print("Using 'test' split instead of 'validation'")
+                    dataset = dataset_dict["test"]
+                else:
+                    # 最初に見つかったsplitを使用
+                    available_split = list(dataset_dict.keys())[0]
+                    print(f"Using '{available_split}' split instead")
+                    dataset = dataset_dict[available_split]
 
             # データを辞書のリストに変換
             data = []
