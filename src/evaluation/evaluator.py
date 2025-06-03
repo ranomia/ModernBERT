@@ -141,7 +141,7 @@ class ModelEvaluator:
                 )
             )
             data_loader = data_loader_instance.create_dataloader(
-                split="validation",
+                split="validation",  # 最終評価用データセット（testデータが非公開のため）
                 batch_size=batch_size,
                 max_length=max_length,
                 shuffle=False,

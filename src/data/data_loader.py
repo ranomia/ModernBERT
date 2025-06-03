@@ -229,15 +229,74 @@ class JCommonsenseQALoader:
         print(f"⚠️  注意：これはダミーデータです。実際のデータセット読み込みに失敗しています。")
         return dummy_data
 
+    def create_train_val_split(self, train_data: List[Dict[str, Any]], validation_split: float = 0.2) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
+        """
+        trainデータセットを訓練用と検証用に分割する
+        
+        Args:
+            train_data: 学習用データ
+            validation_split: 検証用データの割合 (0.0-1.0)
+            
+        Returns:
+            (train_split, val_split): 分割されたデータ
+        """
+        import random
+        
+        # データをシャッフル
+        shuffled_data = train_data.copy()
+        random.shuffle(shuffled_data)
+        
+        # 分割点を計算
+        split_idx = int(len(shuffled_data) * (1 - validation_split))
+        
+        train_split = shuffled_data[:split_idx]
+        val_split = shuffled_data[split_idx:]
+        
+        print(f"📊 trainデータセットを分割しました:")
+        print(f"   - 学習用: {len(train_split)} サンプル")
+        print(f"   - 検証用: {len(val_split)} サンプル")
+        
+        return train_split, val_split
+
     def create_dataloader(
         self,
         split: str = "validation",
         batch_size: int = 8,
         max_length: int = 512,
         shuffle: bool = False,
+        validation_split: float = 0.2,
+        use_train_split: bool = False,
     ) -> DataLoader:
-        """DataLoaderを作成する"""
-        data = self.load_data(split)
+        """
+        DataLoaderを作成する
+        
+        Args:
+            split: データの分割 ("train", "validation", "train_split", "val_split")
+            batch_size: バッチサイズ
+            max_length: 最大系列長
+            shuffle: データをシャッフルするかどうか
+            validation_split: trainデータから検証用に分割する割合（split="train_split" or "val_split"時のみ使用）
+            use_train_split: Trueの場合、trainデータを分割して使用
+        """
+        if split in ["train_split", "val_split"]:
+            # trainデータセットを読み込んで分割
+            train_data = self.load_data("train")
+            train_split, val_split = self.create_train_val_split(train_data, validation_split)
+            
+            if split == "train_split":
+                data = train_split
+                print(f"✅ 学習用分割データを使用: {len(data)} サンプル")
+            else:  # val_split
+                data = val_split
+                print(f"✅ 検証用分割データを使用: {len(data)} サンプル")
+        else:
+            # 通常のデータセット読み込み
+            data = self.load_data(split)
+            if split == "validation":
+                print(f"✅ 最終評価用データセット（validation）を使用: {len(data)} サンプル")
+            elif split == "train":
+                print(f"✅ 完全な学習データセット（train）を使用: {len(data)} サンプル")
+        
         dataset = JCommonsenseQADataset(data, self.tokenizer, max_length)
 
         return DataLoader(

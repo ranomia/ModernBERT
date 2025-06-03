@@ -141,7 +141,7 @@ def finetune_and_evaluate(model_config, args, device):
         tokenizer_name=model_args.get("model_name", "cl-tohoku/bert-base-japanese-v3")
     )
     data_loader = data_loader_instance.create_dataloader(
-        split="validation",
+        split="validation",  # 最終評価用データセット（testデータが非公開のためvalidationを使用）
         batch_size=args.batch_size,
         max_length=args.max_length,
         shuffle=False,

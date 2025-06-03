@@ -156,28 +156,36 @@ class SimpleTrainer:
         """クイックファインチューニング"""
         print(f"🚀 クイックファインチューニングを開始します...")
         print(f"エポック数: {num_epochs}, バッチサイズ: {batch_size}")
+        print(f"📋 データセット分割戦略:")
+        print(f"   - 学習用: trainデータセットの80%")
+        print(f"   - 検証用: trainデータセットの20%")
+        print(f"   - 最終評価用: validationデータセット（未使用でテスト用に保存）")
 
         # データローダー作成
         try:
             data_loader_instance = JCommonsenseQALoader(tokenizer_name=tokenizer_name)
 
-            # 訓練データ（trainデータを使用）
-            print("📚 学習用データセット（train）を読み込み中...")
+            # 訓練データ（trainデータの80%を使用）
+            print("📚 学習用データセット（train_split）を読み込み中...")
             train_dataloader = data_loader_instance.create_dataloader(
-                split="train",  # 正しく学習データを使用
+                split="train_split",  # trainデータセットの学習用分割
                 batch_size=batch_size,
                 max_length=max_length,
                 shuffle=True,
+                validation_split=0.2,  # 20%を検証用に分割
             )
             
-            # 検証データ（評価用に準備）
-            print("📖 検証用データセット（validation）を読み込み中...")
+            # 検証データ（trainデータの20%を使用）
+            print("📖 検証用データセット（val_split）を読み込み中...")
             val_dataloader = data_loader_instance.create_dataloader(
-                split="validation",
+                split="val_split",  # trainデータセットの検証用分割
                 batch_size=batch_size,
                 max_length=max_length,
                 shuffle=False,
+                validation_split=0.2,  # 20%を検証用に分割
             )
+            
+            print("✅ validationデータセットは最終評価用に温存されます")
             
         except Exception as e:
             print(f"⚠️  データローダーの作成に失敗しました: {e}")
