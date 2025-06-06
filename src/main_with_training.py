@@ -72,7 +72,7 @@ def parse_arguments():
     parser.add_argument(
         "--epochs", type=int, default=3, help="ファインチューニングエポック数"
     )
-    parser.add_argument("--learning_rate", type=float, default=2e-5, help="学習率")
+    parser.add_argument("--learning_rate", type=float, default=1e-5, help="学習率")
 
     # GPU最適化オプション
     parser.add_argument(
