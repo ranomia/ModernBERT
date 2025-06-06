@@ -6,6 +6,7 @@ import argparse
 import sys
 import os
 import torch
+import japanize_matplotlib
 from datetime import datetime
 
 # モジュールインポート
