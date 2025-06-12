@@ -15,18 +15,26 @@ import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from data.data_loader import JCommonsenseQALoader
+from utils.learning_curve_plotter import LearningCurvePlotter
 
 
 class SimpleTrainer:
     """簡単なファインチューニング用トレーナー"""
 
-    def __init__(self, model, device, learning_rate=2e-5, use_mixed_precision=False):
+    def __init__(self, model, device, learning_rate=2e-5, use_mixed_precision=False, enable_plotting=True):
         self.model = model
         self.device = device
         self.learning_rate = learning_rate
         self.use_mixed_precision = use_mixed_precision
         self.optimizer = optim.AdamW(model.parameters(), lr=learning_rate)
         self.criterion = nn.CrossEntropyLoss()
+        
+        # 学習曲線プロッターの初期化
+        self.enable_plotting = enable_plotting
+        if enable_plotting:
+            self.plotter = LearningCurvePlotter()
+        else:
+            self.plotter = None
 
         # 混合精度学習用のGradScaler
         if use_mixed_precision and device.type == "cuda":
@@ -151,7 +159,7 @@ class SimpleTrainer:
         return avg_loss, accuracy
 
     def quick_finetune(
-        self, tokenizer_name, num_epochs=3, batch_size=4, max_length=128
+        self, tokenizer_name, num_epochs=3, batch_size=4, max_length=128, model_name="Unknown Model"
     ):
         """クイックファインチューニング"""
         print(f"🚀 クイックファインチューニングを開始します...")
@@ -220,6 +228,17 @@ class SimpleTrainer:
             # 検証フェーズ
             val_loss, val_accuracy = self.evaluate_epoch(val_dataloader)
             
+            # 学習曲線データを記録
+            if self.plotter is not None:
+                self.plotter.add_epoch_data(
+                    model_name=model_name,
+                    epoch=epoch,
+                    train_loss=avg_loss,
+                    train_accuracy=train_accuracy,
+                    val_loss=val_loss,
+                    val_accuracy=val_accuracy
+                )
+            
             print(
                 f"Epoch {epoch}/{num_epochs} - "
                 f"Train Loss: {avg_loss:.4f}, Train Acc: {train_accuracy:.2f}% | "
@@ -227,6 +246,14 @@ class SimpleTrainer:
             )
 
         print("✅ ファインチューニングが完了しました！")
+        
+        # 学習曲線をプロット
+        if self.plotter is not None:
+            print("📊 学習曲線を作成中...")
+            self.plotter.plot_learning_curves()
+            self.plotter.print_summary()
+            self.plotter.save_training_history()
+        
         return self.model
 
 

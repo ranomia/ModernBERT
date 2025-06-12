@@ -118,6 +118,7 @@ def finetune_and_evaluate(model_config, args, device):
             device,
             learning_rate=args.learning_rate,
             use_mixed_precision=args.mixed_precision,
+            enable_plotting=True,  # 学習曲線プロット機能を有効化
         )
         model = trainer.quick_finetune(
             tokenizer_name=model_args.get(
@@ -126,6 +127,7 @@ def finetune_and_evaluate(model_config, args, device):
             num_epochs=args.epochs,
             batch_size=args.batch_size,
             max_length=args.max_length,
+            model_name=model_name,  # モデル名を渡す
         )
     else:
         print(
@@ -289,6 +291,11 @@ def main():
             print(
                 "   python main_with_training.py --finetune --epochs 5 --batch_size 4"
             )
+    else:
+        print("\n📈 **学習曲線について**:")
+        print("   - 個別モデルの学習曲線: 各モデルのファインチューニング後に表示")
+        print("   - 学習履歴データ: results/training_history_*.json")
+        print("   - 学習曲線画像: results/learning_curves_*.png")
 
     # 最終メモリクリーンアップ
     if device.type == "cuda":
