@@ -26,10 +26,10 @@ class LearningCurvePlotter:
         
         # プロットのスタイル設定
         self.colors = {
-            'bert_train': '#1f77b4',     # 青
-            'bert_val': '#aec7e8',       # 薄青
-            'modernbert_train': '#ff7f0e', # オレンジ
-            'modernbert_val': '#ffbb78',   # 薄オレンジ
+            'bert_train': '#1f77b4',       # 青（濃）
+            'bert_val': '#1f77b4',         # 青（同色、線種で区別）
+            'modernbert_train': '#ff7f0e', # オレンジ（濃）
+            'modernbert_val': '#ff7f0e',   # オレンジ（同色、線種で区別）
         }
         
         self.line_styles = {
@@ -87,6 +87,11 @@ class LearningCurvePlotter:
         
         # 全体のタイトル
         fig.suptitle('学習曲線比較（BERT vs ModernBERT）', fontsize=16, fontweight='bold')
+        
+        # 比較モデル数を確認
+        model_count = len(self.training_history)
+        if model_count > 1:
+            print(f"📊 {model_count}つのモデルの学習曲線を同一プロット上に表示します")
         
         # レイアウト調整
         plt.tight_layout()

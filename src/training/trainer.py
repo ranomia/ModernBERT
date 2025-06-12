@@ -21,7 +21,7 @@ from utils.learning_curve_plotter import LearningCurvePlotter
 class SimpleTrainer:
     """簡単なファインチューニング用トレーナー"""
 
-    def __init__(self, model, device, learning_rate=2e-5, use_mixed_precision=False, enable_plotting=True):
+    def __init__(self, model, device, learning_rate=2e-5, use_mixed_precision=False, enable_plotting=True, shared_plotter=None):
         self.model = model
         self.device = device
         self.learning_rate = learning_rate
@@ -31,7 +31,11 @@ class SimpleTrainer:
         
         # 学習曲線プロッターの初期化
         self.enable_plotting = enable_plotting
-        if enable_plotting:
+        if shared_plotter is not None:
+            # 共有プロッターを使用
+            self.plotter = shared_plotter
+        elif enable_plotting:
+            # 個別プロッターを作成
             self.plotter = LearningCurvePlotter()
         else:
             self.plotter = None
@@ -247,8 +251,8 @@ class SimpleTrainer:
 
         print("✅ ファインチューニングが完了しました！")
         
-        # 学習曲線をプロット
-        if self.plotter is not None:
+        # 学習曲線をプロット（個別プロッターの場合のみ）
+        if self.plotter is not None and self.enable_plotting:
             print("📊 学習曲線を作成中...")
             self.plotter.plot_learning_curves()
             self.plotter.print_summary()

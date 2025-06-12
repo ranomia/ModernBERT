@@ -98,7 +98,7 @@ def setup_gpu_optimizations(device):
         print("   - メモリキャッシュ: クリア済み")
 
 
-def finetune_and_evaluate(model_config, args, device):
+def finetune_and_evaluate(model_config, args, device, shared_plotter=None):
     """ファインチューニングと評価を実行"""
     model_name = model_config["name"]
     model_class = model_config["class"]
@@ -112,13 +112,14 @@ def finetune_and_evaluate(model_config, args, device):
     if args.finetune:
         print(f"🎓 {model_name} のファインチューニングを実行中...")
 
-        # ファインチューニング実行
+        # ファインチューニング実行（共有プロッターを使用）
         trainer = SimpleTrainer(
             model,
             device,
             learning_rate=args.learning_rate,
             use_mixed_precision=args.mixed_precision,
-            enable_plotting=True,  # 学習曲線プロット機能を有効化
+            enable_plotting=False,  # 個別プロッターは無効化
+            shared_plotter=shared_plotter,  # 共有プロッターを渡す
         )
         model = trainer.quick_finetune(
             tokenizer_name=model_args.get(
@@ -225,11 +226,22 @@ def main():
         )
 
     results = {}
+    
+    # 共有学習曲線プロッターの初期化（ファインチューニング時のみ）
+    shared_plotter = None
+    if args.finetune:
+        try:
+            from utils.learning_curve_plotter import LearningCurvePlotter
+            shared_plotter = LearningCurvePlotter()
+            print("📊 共有学習曲線プロッターを初期化しました")
+        except ImportError as e:
+            print(f"⚠️  学習曲線プロッター初期化でエラー: {e}")
+            shared_plotter = None
 
     # 各モデルを順次処理
     for model_config in models_config:
         try:
-            result = finetune_and_evaluate(model_config, args, device)
+            result = finetune_and_evaluate(model_config, args, device, shared_plotter)
             results[model_config["name"]] = result
         except Exception as e:
             print(f"❌ {model_config['name']} でエラーが発生しました: {e}")
@@ -240,6 +252,18 @@ def main():
                 print("   - 系列長を短くする: --max_length 64")
                 print("   - 混合精度を使用: --mixed_precision")
             continue
+    
+    # 統合学習曲線の表示（全モデル処理後）
+    if shared_plotter is not None and shared_plotter.training_history:
+        print("\n📊 統合学習曲線を作成中...")
+        try:
+            shared_plotter.plot_learning_curves(save_dir="results", show_plot=False)
+            shared_plotter.print_summary()
+            shared_plotter.compare_models()
+            shared_plotter.save_training_history()
+            print("✅ 統合学習曲線を作成しました！")
+        except Exception as e:
+            print(f"⚠️  統合学習曲線の作成でエラー: {e}")
 
     # 結果サマリー
     print("\n" + "=" * 80)
