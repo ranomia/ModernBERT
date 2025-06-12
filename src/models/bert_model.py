@@ -28,7 +28,7 @@ class BERTModel(nn.Module):
         # 分類ヘッド
         hidden_size = self.bert.config.hidden_size
         self.classifier = nn.Linear(hidden_size, 1)
-        self.dropout = nn.Dropout(0.1)
+        self.dropout = nn.Dropout(0.2)
 
     def forward(self, input_ids, attention_mask):
         """
